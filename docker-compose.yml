@@ -1,0 +1,98 @@
+networks:
+  rabbitmq_net:
+    name: rabbitmq_net
+    driver: bridge
+services:
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: "nginx-proxy"
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./certs:/etc/nginx/certs"
+      - "./vhost:/etc/nginx/vhost.d"
+      - "./html:/usr/share/nginx/html"
+      - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "./nginx.conf:/etc/nginx/nginx.conf:ro"
+    environment:
+      - DEFAULT_HOST=nost.smce.nasa.gov
+      # - VIRTUAL_HOST=nost.smce.nasa.gov
+      # - LETSENCRYPT_HOST=nost.smce.nasa.gov
+      # - VIRTUAL_PORT=3000
+  nginx-proxy-acme:
+    image: nginxproxy/acme-companion
+    container_name: "acme-companion"
+    restart: always
+    depends_on:
+      - nginx-proxy
+    volumes_from:
+      - nginx-proxy
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./acme:/etc/acme.sh"
+    environment:
+      DEFAULT_EMAIL: emmanuelgonzalez@asu.edu
+      FILES_PERMS: 644
+  keycloak:
+    image: quay.io/keycloak/keycloak:20.0
+    container_name: "keycloak"
+    networks:
+      - rabbitmq_net
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    environment:
+      KEYCLOAK_ADMIN: nost_admin
+      KEYCLOAK_ADMIN_PASSWORD: arizona_state_university_code_lab
+      VIRTUAL_HOST: nost.smce.nasa.gov
+      VIRTUAL_PORT: 8443
+      LETSENCRYPT_HOST: nost.smce.nasa.gov
+    volumes:
+      - ./conf/keycloak/import:/opt/keycloak/data/import
+      - ./certs:/certs
+    command: start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
+    restart: always
+  rabbitmq:
+    image: rabbitmq:3.13.6-management
+    container_name: "rabbitmq"
+    networks:
+      - rabbitmq_net
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+      - "5552:5552"
+      - "15671:15671"
+      - "5671:5671"
+    volumes:
+      - ./conf/keycloak:/conf
+      - ./conf/enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./conf/keycloak/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./conf/keycloak/advanced.config:/etc/rabbitmq/advanced.config:ro
+      - ./certs:/certs
+    restart: always
+  rabbitmq_tcp_relay:
+    image: cloudamqp/websocket-tcp-relay
+    container_name: "rabbitmq_tcp_relay"
+    networks:
+      - rabbitmq_net
+    ports:
+      - "15670:15670"
+    volumes:
+      - ./conf/keycloak:/conf
+      - ./certs:/certs
+    command: --upstream=tcp://rabbitmq:5672 --bind=0.0.0.0 --tls-cert=/certs/nost.smce.nasa.gov/fullchain.pem --tls-key=/certs/nost.smce.nasa.gov/key.pem #--upstream=tcp://rabbitmq:5672 --bind=0.0.0.0
+    restart: always
+  nost-sos:
+    image: emmanuelgonzalez/nost_sos_visualization:latest
+    container_name: "nost-sos"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ".env:/usr/src/app/.env"
+    environment:
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
+      - VIRTUAL_PORT=3000
+    restart: always

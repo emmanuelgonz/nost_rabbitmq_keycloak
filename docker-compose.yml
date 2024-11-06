@@ -50,6 +50,7 @@ services:
       - VIRTUAL_HOST=nost.smce.nasa.gov
       - VIRTUAL_PORT=8443
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_TEST=true
     volumes:
       - ./conf/keycloak/import:/opt/keycloak/data/import
       - ./certs:/certs

@@ -1,3 +1,5 @@
-./vhost
-./certs
-./acme
+vhost/
+certs/
+acme/
+conf/keycloak/import/*.json
+.env

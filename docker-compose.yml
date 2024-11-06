@@ -44,11 +44,11 @@ services:
       - "8080:8080"
       - "8443:8443"
     environment:
-      KEYCLOAK_ADMIN: nost_admin
-      KEYCLOAK_ADMIN_PASSWORD: arizona_state_university_code_lab
-      VIRTUAL_HOST: nost.smce.nasa.gov
-      VIRTUAL_PORT: 8443
-      LETSENCRYPT_HOST: nost.smce.nasa.gov
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - VIRTUAL_PORT=8443
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
     volumes:
       - ./conf/keycloak/import:/opt/keycloak/data/import
       - ./certs:/certs

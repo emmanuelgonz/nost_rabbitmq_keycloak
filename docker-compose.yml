@@ -32,9 +32,10 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./acme:/etc/acme.sh"
+      - "./certs:/etc/nginx/certs:rw"
     environment:
-      DEFAULT_EMAIL: emmanuelgonzalez@asu.edu
-      FILES_PERMS: 644
+      - DEFAULT_EMAIL=emmanuelgonzalez@asu.edu
+      - FILES_PERMS=644
   keycloak:
     image: quay.io/keycloak/keycloak:20.0
     container_name: "keycloak"

@@ -18,11 +18,8 @@ services:
       - "./html:/usr/share/nginx/html"
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
       - "./nginx.conf:/etc/nginx/nginx.conf:ro"
-    environment:
-      - DEFAULT_HOST=nost.smce.nasa.gov
-      # - VIRTUAL_HOST=nost.smce.nasa.gov
-      # - LETSENCRYPT_HOST=nost.smce.nasa.gov
-      # - VIRTUAL_PORT=3000
+    # environment:
+    #   - DEFAULT_HOST=nost.smce.nasa.gov
   nginx-proxy-acme:
     image: nginxproxy/acme-companion
     container_name: "acme-companion"
@@ -49,16 +46,16 @@ services:
     ports:
       - "8080:8080"
       - "8443:8443"
-    environment:
-      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
-      - VIRTUAL_HOST=nost.smce.nasa.gov
-      - VIRTUAL_PORT=8443
-      - LETSENCRYPT_HOST=nost.smce.nasa.gov
-      # - LETSENCRYPT_TEST=true
     volumes:
       - ./conf/keycloak/import:/opt/keycloak/data/import
       - ./certs:/certs
+    environment:
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - VIRTUAL_PORT=8443
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
+      # - LETSENCRYPT_TEST=true
     command: start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
   rabbitmq:
     image: rabbitmq:3.13.6-management
@@ -78,6 +75,10 @@ services:
       - ./conf/keycloak/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./conf/keycloak/advanced.config:/etc/rabbitmq/advanced.config:ro
       - ./certs:/certs
+    environment:
+      - VIRTUAL_PORT=8443
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
   rabbitmq_tcp_relay:
     image: cloudamqp/websocket-tcp-relay
     container_name: "rabbitmq_tcp_relay"
@@ -89,7 +90,11 @@ services:
     volumes:
       - ./conf/keycloak:/conf
       - ./certs:/certs
-    command: --upstream=tcp://rabbitmq:5672 --bind=0.0.0.0 --tls-cert=/certs/nost.smce.nasa.gov/fullchain.pem --tls-key=/certs/nost.smce.nasa.gov/key.pem #--upstream=tcp://rabbitmq:5672 --bind=0.0.0.0
+    environment:
+      - VIRTUAL_PORT=8443
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
+    command: --upstream=tcp://rabbitmq:5672 --bind=0.0.0.0 --tls-cert=/certs/nost.smce.nasa.gov/fullchain.pem --tls-key=/certs/nost.smce.nasa.gov/key.pem
   nost-sos:
     image: emmanuelgonzalez/nost_sos_visualization:latest
     container_name: "nost-sos"
@@ -101,6 +106,6 @@ services:
     volumes:
       - ".env:/usr/src/app/.env"
     environment:
+      - VIRTUAL_PORT=3000
       - VIRTUAL_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
-      - VIRTUAL_PORT=3000

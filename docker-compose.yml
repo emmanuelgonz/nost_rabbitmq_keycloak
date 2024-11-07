@@ -6,6 +6,8 @@ services:
   nginx-proxy:
     image: nginxproxy/nginx-proxy
     container_name: "nginx-proxy"
+    networks:
+      - rabbitmq_net
     restart: always
     ports:
       - "80:80"
@@ -24,6 +26,8 @@ services:
   nginx-proxy-acme:
     image: nginxproxy/acme-companion
     container_name: "acme-companion"
+    networks:
+      - rabbitmq_net
     restart: always
     depends_on:
       - nginx-proxy
@@ -41,6 +45,7 @@ services:
     container_name: "keycloak"
     networks:
       - rabbitmq_net
+    restart: always
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -55,12 +60,12 @@ services:
       - ./conf/keycloak/import:/opt/keycloak/data/import
       - ./certs:/certs
     command: start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
-    restart: always
   rabbitmq:
     image: rabbitmq:3.13.6-management
     container_name: "rabbitmq"
     networks:
       - rabbitmq_net
+    restart: always
     ports:
       - "15672:15672"
       - "5672:5672"
@@ -73,22 +78,24 @@ services:
       - ./conf/keycloak/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./conf/keycloak/advanced.config:/etc/rabbitmq/advanced.config:ro
       - ./certs:/certs
-    restart: always
   rabbitmq_tcp_relay:
     image: cloudamqp/websocket-tcp-relay
     container_name: "rabbitmq_tcp_relay"
     networks:
       - rabbitmq_net
+    restart: always
     ports:
       - "15670:15670"
     volumes:
       - ./conf/keycloak:/conf
       - ./certs:/certs
     command: --upstream=tcp://rabbitmq:5672 --bind=0.0.0.0 --tls-cert=/certs/nost.smce.nasa.gov/fullchain.pem --tls-key=/certs/nost.smce.nasa.gov/key.pem #--upstream=tcp://rabbitmq:5672 --bind=0.0.0.0
-    restart: always
   nost-sos:
     image: emmanuelgonzalez/nost_sos_visualization:latest
     container_name: "nost-sos"
+    networks:
+      - rabbitmq_net
+    restart: always
     ports:
       - "3000:3000"
     volumes:
@@ -97,4 +104,3 @@ services:
       - VIRTUAL_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
       - VIRTUAL_PORT=3000
-    restart: always

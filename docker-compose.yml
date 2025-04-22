@@ -58,7 +58,7 @@ services:
       # - LETSENCRYPT_TEST=true
     command: start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
   rabbitmq:
-    image: rabbitmq:3.13.6-management
+    image: rabbitmq:4.0.8-management
     container_name: "rabbitmq"
     networks:
       - rabbitmq_net

@@ -20,6 +20,13 @@ services:
       # - "./nginx.conf:/etc/nginx/nginx.conf:ro"
     # environment:
     #   - DEFAULT_HOST=nost.smce.nasa.gov
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t -q || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   nginx-proxy-acme:
     image: nginxproxy/acme-companion
     container_name: "acme-companion"
@@ -37,26 +44,48 @@ services:
     environment:
       - DEFAULT_EMAIL=emmanuelgonzalez@asu.edu
       - FILES_PERMS=644
-  # keycloak:
-  #   image: quay.io/keycloak/keycloak:20.0
-  #   container_name: "keycloak"
-  #   networks:
-  #     - rabbitmq_net
-  #   restart: always
-  #   ports:
-  #     - "8080:8080"
-  #     - "8443:8443"
-  #   volumes:
-  #     - ./conf/keycloak/import:/opt/keycloak/data/import
-  #     - ./certs:/certs
-  #   environment:
-  #     - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
-  #     - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
-  #     - VIRTUAL_PORT=8443
-  #     - VIRTUAL_HOST=nost.smce.nasa.gov
-  #     - LETSENCRYPT_HOST=nost.smce.nasa.gov
-  #     # - LETSENCRYPT_TEST=true
-  #   command: start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
+      # - ACME_CA_URI=https://acme-staging-v02.api.letsencrypt.org/directory
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "[ -s /etc/nginx/certs/nost.smce.nasa.gov/fullchain.pem ] && [ -s /etc/nginx/certs/nost.smce.nasa.gov/key.pem ] || exit 1"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:20.0
+    container_name: "keycloak"
+    networks:
+      - rabbitmq_net
+    restart: always
+    depends_on:
+      nginx-proxy:
+        condition: service_healthy
+      nginx-proxy-acme:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - ./conf/keycloak/import:/opt/keycloak/data/import
+      - ./certs:/certs
+    environment:
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - VIRTUAL_PORT=8443
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
+      # - LETSENCRYPT_TEST=true
+    entrypoint: ["/bin/sh","-c"]
+    command: >
+      until [ -s /certs/nost.smce.nasa.gov/fullchain.pem ] && [ -s /certs/nost.smce.nasa.gov/key.pem ]; do
+        echo "Waiting for Let's Encrypt cert for nost.smce.nasa.gov..."; sleep 5;
+      done;
+      exec /opt/keycloak/bin/kc.sh start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
   # rabbitmq:
   #   image: rabbitmq:4.0.8-management
   #   container_name: "rabbitmq"

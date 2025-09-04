@@ -13,13 +13,11 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - "./certs:/etc/nginx/certs"
-      - "./vhost:/etc/nginx/vhost.d"
-      - "./html:/usr/share/nginx/html"
-      - "/var/run/docker.sock:/tmp/docker.sock:ro"
-      # - "./nginx.conf:/etc/nginx/nginx.conf:ro"
-    # environment:
-    #   - DEFAULT_HOST=nost.smce.nasa.gov
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ./vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
+      # - ./nginx.conf:/etc/nginx/nginx.conf:ro
   nginx-proxy-acme:
     image: nginxproxy/acme-companion:2.5.2
     container_name: "acme-companion"
@@ -31,9 +29,12 @@ services:
     volumes_from:
       - nginx-proxy
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./acme:/etc/acme.sh"
-      - "./certs:/etc/nginx/certs:rw"
+      - ./certs:/etc/nginx/certs
+      - ./vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
+      - ./acme:/etc/acme.sh
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
     environment:
       - DEFAULT_EMAIL=emmanuelgonzalez@asu.edu
       - FILES_PERMS=644

@@ -21,7 +21,7 @@ services:
     # environment:
     #   - DEFAULT_HOST=nost.smce.nasa.gov
   nginx-proxy-acme:
-    image: nginxproxy/acme-companion
+    image: nginxproxy/acme-companion:2.5.2
     container_name: "acme-companion"
     networks:
       - rabbitmq_net

@@ -82,7 +82,6 @@ services:
     volumes:
       - ./conf/keycloak:/conf
       - ./certs:/certs
-    environment:
     command: --upstream=tcp://rabbitmq:5672 --bind=0.0.0.0 --tls-cert=/certs/nost.smce.nasa.gov/fullchain.pem --tls-key=/certs/nost.smce.nasa.gov/key.pem
   nost-sos:
     image: emmanuelgonzalez/nost_sos_visualization:latest
@@ -94,7 +93,6 @@ services:
       - "3000:3000"
     volumes:
       - ".env:/usr/src/app/.env"
-    environment:
   nost-monitor-frontend:
     build:
       context: ../nost-monitor-frontend/

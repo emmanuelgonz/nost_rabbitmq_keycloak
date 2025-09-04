@@ -37,26 +37,38 @@ services:
     environment:
       - DEFAULT_EMAIL=emmanuelgonzalez@asu.edu
       - FILES_PERMS=644
-  keycloak:
-    image: quay.io/keycloak/keycloak:20.0
-    container_name: "keycloak"
+  # Minimal backend to trigger cert issuance
+  whoami:
+    image: nginx:alpine
+    container_name: "whoami"
     networks:
       - rabbitmq_net
     restart: always
-    ports:
-      - "8080:8080"
-      - "8443:8443"
-    volumes:
-      - ./conf/keycloak/import:/opt/keycloak/data/import
-      - ./certs:/certs
+    expose:
+      - "80"
     environment:
-      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
-      - VIRTUAL_PORT=8443
       - VIRTUAL_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
-      # - LETSENCRYPT_TEST=true
-    command: start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
+  # keycloak:
+  #   image: quay.io/keycloak/keycloak:20.0
+  #   container_name: "keycloak"
+  #   networks:
+  #     - rabbitmq_net
+  #   restart: always
+  #   ports:
+  #     - "8080:8080"
+  #     - "8443:8443"
+  #   volumes:
+  #     - ./conf/keycloak/import:/opt/keycloak/data/import
+  #     - ./certs:/certs
+  #   environment:
+  #     - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+  #     - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+  #     - VIRTUAL_PORT=8443
+  #     - VIRTUAL_HOST=nost.smce.nasa.gov
+  #     - LETSENCRYPT_HOST=nost.smce.nasa.gov
+  #     # - LETSENCRYPT_TEST=true
+  #   command: start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
   # rabbitmq:
   #   image: rabbitmq:4.0.8-management
   #   container_name: "rabbitmq"

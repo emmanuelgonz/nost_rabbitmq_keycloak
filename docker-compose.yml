@@ -71,7 +71,6 @@ services:
       - ./conf/keycloak/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./conf/keycloak/advanced.config:/etc/rabbitmq/advanced.config:ro
       - ./certs:/certs
-    environment:
   rabbitmq_tcp_relay:
     image: cloudamqp/websocket-tcp-relay
     container_name: "rabbitmq_tcp_relay"

@@ -17,6 +17,7 @@ services:
       - "./vhost:/etc/nginx/vhost.d"
       - "./html:/usr/share/nginx/html"
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "./nginx.conf:/etc/nginx/nginx.conf:ro"
     # environment:
     #   - DEFAULT_HOST=nost.smce.nasa.gov
   nginx-proxy-acme:
@@ -51,6 +52,9 @@ services:
     environment:
       - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - VIRTUAL_PORT=8443
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
       # - LETSENCRYPT_TEST=true
     command: start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
   rabbitmq:
@@ -71,6 +75,10 @@ services:
       - ./conf/keycloak/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./conf/keycloak/advanced.config:/etc/rabbitmq/advanced.config:ro
       - ./certs:/certs
+    environment:
+      - VIRTUAL_PORT=8443
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
   rabbitmq_tcp_relay:
     image: cloudamqp/websocket-tcp-relay
     container_name: "rabbitmq_tcp_relay"
@@ -82,6 +90,10 @@ services:
     volumes:
       - ./conf/keycloak:/conf
       - ./certs:/certs
+    environment:
+      - VIRTUAL_PORT=8443
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
     command: --upstream=tcp://rabbitmq:5672 --bind=0.0.0.0 --tls-cert=/certs/nost.smce.nasa.gov/fullchain.pem --tls-key=/certs/nost.smce.nasa.gov/key.pem
   nost-sos:
     image: emmanuelgonzalez/nost_sos_visualization:latest
@@ -93,16 +105,20 @@ services:
       - "3000:3000"
     volumes:
       - ".env:/usr/src/app/.env"
-  nost-monitor-frontend:
-    build:
-      context: ../nost-monitor-frontend/
-    container_name: "nost-monitor-frontend"
-    networks:
-      - rabbitmq_net
-    restart: always
-    expose:
-      - "80"
     environment:
-      - VIRTUAL_PORT=80
+      - VIRTUAL_PORT=3000
       - VIRTUAL_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
+  # nost-monitor-frontend:
+  #   build:
+  #     context: ../nost-monitor-frontend/
+  #   container_name: "nost-monitor-frontend"
+  #   networks:
+  #     - rabbitmq_net
+  #   restart: always
+  #   expose:
+  #     - "80"
+  #   environment:
+  #     - VIRTUAL_PORT=80
+  #     - VIRTUAL_HOST=nost.smce.nasa.gov
+  #     - LETSENCRYPT_HOST=nost.smce.nasa.gov

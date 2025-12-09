@@ -1,4 +1,3 @@
-vhost/
 certs/
 acme/
 conf/keycloak/import/*.json

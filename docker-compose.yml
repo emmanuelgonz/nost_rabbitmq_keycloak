@@ -140,8 +140,6 @@ services:
       - "3000"
     environment:
       - VIRTUAL_HOST=nost.smce.nasa.gov
-      - VIRTUAL_PATH=/api/
-      - VIRTUAL_DEST=/
       - VIRTUAL_PORT=3000
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_TEST=true

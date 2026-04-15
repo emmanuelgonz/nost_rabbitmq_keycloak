@@ -127,3 +127,21 @@ services:
       - VIRTUAL_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_TEST=true
+  nost-monitor-backend:
+    build:
+      context: ../nost-monitor-backend/
+    container_name: "nost-monitor-backend"
+    networks:
+      - rabbitmq_net
+    restart: always
+    env_file:
+      - ../nost-monitor-backend/.env
+    expose:
+      - "3000"
+    environment:
+      - VIRTUAL_HOST=nost.smce.nasa.gov
+      - VIRTUAL_PATH=/api/
+      - VIRTUAL_DEST=/
+      - VIRTUAL_PORT=3000
+      - LETSENCRYPT_HOST=nost.smce.nasa.gov
+      - LETSENCRYPT_TEST=true

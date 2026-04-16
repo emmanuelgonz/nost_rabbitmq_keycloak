@@ -134,6 +134,7 @@ services:
     networks:
       - rabbitmq_net
     restart: always
+    stop_grace_period: 15s
     env_file:
       - ../nost-monitor-backend/.env
     expose:

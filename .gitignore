@@ -2,3 +2,6 @@ certs/
 acme/
 conf/keycloak/import/*.json
 .env
+
+# Generated from KEYCLOAK_MIGRATION.md via pandoc
+KEYCLOAK_MIGRATION.docx

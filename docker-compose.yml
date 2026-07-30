@@ -89,21 +89,24 @@ services:
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_TEST=true
     command: --upstream=tcp://rabbitmq:5672 --bind=0.0.0.0 --tls-cert=/certs/nost.smce.nasa.gov/fullchain.pem --tls-key=/certs/nost.smce.nasa.gov/key.pem
-  nost-sos:
-    image: emmanuelgonzalez/nost_sos_visualization:latest
-    container_name: "nost-sos"
-    networks:
-      - rabbitmq_net
-    restart: always
-    ports:
-      - "3000:3000"
-    volumes:
-      - ".env:/usr/src/app/.env"
-    environment:
-      - VIRTUAL_PORT=3000
-      - VIRTUAL_HOST=nost.smce.nasa.gov
-      - LETSENCRYPT_HOST=nost.smce.nasa.gov
-      - LETSENCRYPT_TEST=true
+  # MIGRATION (keycloak_migration): nost-sos disabled pending verification that the
+  # prebuilt image (emmanuelgonzalez/nost_sos_visualization) handles the split
+  # Keycloak host (auth.sciencecloud.nasa.gov) vs broker host (nost.smce.nasa.gov).
+  # nost-sos:
+  #   image: emmanuelgonzalez/nost_sos_visualization:latest
+  #   container_name: "nost-sos"
+  #   networks:
+  #     - rabbitmq_net
+  #   restart: always
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ".env:/usr/src/app/.env"
+  #   environment:
+  #     - VIRTUAL_PORT=3000
+  #     - VIRTUAL_HOST=nost.smce.nasa.gov
+  #     - LETSENCRYPT_HOST=nost.smce.nasa.gov
+  #     - LETSENCRYPT_TEST=true
   nost-monitor-frontend:
     build:
       context: ../nost-monitor-frontend/

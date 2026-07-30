@@ -202,6 +202,27 @@ Raised from `keycloak_openid.token(grant_type=["client_credentials"])` in `nost_
 
 **Caveat — pending required actions:** disabling the flow step covers users who *have* OTP configured. Separately, a user with **"Configure OTP" as a pending required action** still fails with `invalid_grant: Account is not fully set up`. Clear it under Users → user → **Required actions**, or use a **service account** (`client_credentials`) for headless access — no user, so no OTP or required actions ever.
 
+## Browser frontend AMQP connection refused: "ACCESS_REFUSED ... PLAIN (403)"
+
+**Symptom** — after a successful Keycloak login, `nost-monitor-frontend` (and similarly `nost-sos`) fails to reach the broker:
+
+```
+Error during AMQP setup: AMQPError: connection closed: ACCESS_REFUSED -
+Login was refused using authentication mechanism PLAIN. For details see the
+broker logfile. (403)
+```
+
+**Cause** — the frontend presents the **browser-login client's user token as the AMQP password** (`new AMQPWebSocketClient(url, "/", "", accessToken)` in `main.js`). The web-login client (`sos_nodejs`, set via `DEFAULT_KEYCLOAK_WEB_LOGIN_CLIENT_ID`) has **none** of the mappers RabbitMQ needs — no `aud`→`rabbitmq`, no `realm roles`→`extra_scope`, no `username`→`user_name` (only default IP/ID/Host session mappers). So its token lacks `aud: rabbitmq` and carries the user's roles only in `realm_access.roles`, not the `extra_scope` claim RabbitMQ reads. Either gap yields a PLAIN `ACCESS_REFUSED`.
+
+**Confirm** — `docker compose logs --tail=50 rabbitmq` names the exact reason (audience / issuer / permission / signature).
+
+**Fix:**
+1. Add the three mappers to `sos_nodejs` (Part C recipe): `aud` (Audience → `rabbitmq`), `realm roles` (User Realm Role → `extra_scope`), `username` (User Property → `user_name`).
+2. Assign the **logged-in user** the rabbitmq realm roles the frontend needs. It declares an exchange, binds a queue, and consumes → **configure + read + write**: `rabbitmq.configure:*/*/*`, `rabbitmq.read:*/*/*`, `rabbitmq.write:*/*/*` (Users → user → Role mapping → Assign role). No management tag needed — it's an AMQP client, not the UI.
+3. **Re-login** to mint a fresh token with the new claims, then reconnect.
+
+**Caveat** — if the broker log points to `issuer` or `signature`/JWKS rather than audience/permission, that's a different problem (the issuer string or the `verify_peer` cert-trust change), not the mappers.
+
 ---
 
 ## Reference

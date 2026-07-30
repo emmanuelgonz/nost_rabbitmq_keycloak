@@ -100,10 +100,109 @@ No `rabbitmq.conf` change or container restart is required — this is entirely 
 
 ---
 
-## Still open after this
+---
 
-- **AMQP resource permissions** flow through realm **roles** → the `extra_scope` claim (`auth_oauth2.additional_scopes_key = extra_scope`). Realm roles + user role assignments are a separate partial-import gap to close before publish/consume works.
-- **Exchange naming:** the realm's resource scopes target a **`sos`** exchange (`rabbitmq.*:*/sos*/sos*`), not `nost`. Confirm which exchange this deployment is meant to authorize.
+# Part 2 — AMQP resource permissions (publish/consume)
+
+The login fix (Parts A–D) only grants the management UI. Actual AMQP read/write/configure permissions flow two ways, merged by RabbitMQ from the token:
+
+1. **Client default scopes → `scope` claim** — each application authenticates as a Keycloak client whose RabbitMQ permissions are its default client scopes.
+2. **Realm roles → `extra_scope` claim** — a human user's assigned realm roles (via the `realm roles` mapper) become permissions.
+
+**Deployment decision (recorded):** reuse the **existing** permission definitions only — the **`sos`**-scoped scopes/roles and the **wildcard `*/*/*`** ("sudo", all exchanges). The `nost` exchange is authorized via the wildcard; **no `nost`-specific scopes or roles are created.** All eight client scopes already exist from Part A, so this part just attaches them to clients and assigns matching roles to users.
+
+## Part E — Verify the realm roles exist
+
+Partial import *does* support realm roles (unlike client scopes), so these may already be present. Realm roles → confirm each exists; create any missing via **Create role** (name only):
+
+- `rabbitmq.tag:administrator`, `rabbitmq.tag:management`
+- `rabbitmq.read:*/*/*`, `rabbitmq.write:*/*/*`, `rabbitmq.configure:*/*/*`
+- `rabbitmq.read:*/sos*/sos*`, `rabbitmq.write:*/sos*/sos*`, `rabbitmq.configure:*/sos*/sos*`
+
+## Part F — Attach resource scopes + mappers to application (service) clients
+
+Each app's permissions come from its **default client scopes**, and each client needs the same three mappers as `rabbitmq-client-code`. Apply per client:
+
+| Client | Attach these resource scopes (as Default) | Reach |
+|--------|-------------------------------------------|-------|
+| `nost_sos` | `read/write/configure:*/sos*/sos*` | sos only |
+| `nost_sudo` | `read/write/configure:*/*/*` | all exchanges (incl. `nost`) |
+| `mgt_api_client` | `tag:administrator`, `tag:management` | management API |
+
+For **each** client:
+1. Clients → select client → **Client scopes** tab → **Add client scope** → tick the rows above → **Add → Default**.
+2. Clients → same client → **Client scopes** tab → click **`<client>-dedicated`** → **Mappers** tab → ensure `aud`, `realm roles`, `username` exist (Part C recipe); create any missing. `aud: rabbitmq` is required on every client, including service-account clients.
+
+## Part G — Grant human users resource permissions
+
+Human users get permissions from assigned **realm roles** (mapped into `extra_scope`). Per user:
+
+1. Users → select user → **Role mapping** → **Assign role**.
+2. Filter to **realm roles** and assign the set they need:
+   - Management UI: `rabbitmq.tag:administrator`
+   - All exchanges (incl. `nost`): `rabbitmq.{read,write,configure}:*/*/*`
+   - sos only: `rabbitmq.{read,write,configure}:*/sos*/sos*`
+3. Save. The `realm roles` mapper places these into `extra_scope`, which RabbitMQ merges with the `scope` claim.
+
+## Verify AMQP access
+
+Decode a token issued to the app client (or user) and confirm the permission appears in **`scope`** (client path) or **`extra_scope`** (role path), and `aud` contains `rabbitmq`. Then run a real publish/consume — the wildcard/sudo path for the `nost` exchange, the sos scopes for `sos`.
+
+## Notes
+
+- `nost` is authorized via the wildcard `*/*/*` (sudo), not a dedicated scope — intentional per the deployment decision above.
+- Client scopes and realm roles share the same `rabbitmq.*` names by design; they feed the `scope` and `extra_scope` claims respectively.
+
+---
+
+# Part 3 — Troubleshooting & auth-flow notes
+
+Realm-config gotchas encountered during the migration, with their fixes.
+
+## Service-account (`client_credentials`) login fails: "service account does not exist"
+
+**Symptom** — a service-account login (client ID + client secret, no username/password) fails at token retrieval:
+
+```
+401: {"error":"invalid_request",
+      "error_description":"The associated service account for the client does not exist"}
+```
+
+Raised from `keycloak_openid.token(grant_type=["client_credentials"])` in `nost_tools/application.py`.
+
+**Cause** — the `client_credentials` grant needs a **service-account user**. Partial import created the client but didn't provision its service-account user (Service Accounts came in disabled, or the user was never created). In the realm export the client is confidential with service accounts enabled (`publicClient=false`, `serviceAccountsEnabled=true`) — so this is a realm-config gap, not a code problem.
+
+**Fix** (admin console, realm NOS-T):
+1. **Clients → `<client>` (e.g. `nost_sudo`) → Settings**.
+2. Under **Capability config**:
+   - **Client authentication: On** (confidential — required for `client_credentials`).
+   - **Authentication flows** → check **Service accounts roles**. Leave **Standard flow** unchecked (browser-only; unused by a headless service account); **Direct access grants** optional.
+3. **Save** — this provisions the `service-account-<client>` user, which was the missing piece.
+   - If it already looked enabled, toggle it **off → Save → on → Save** to force recreation of the service-account user.
+4. **Credentials** tab → copy the **Client secret**; if it differs from `.env`, update `CLIENT_SECRET_KEY` to match (re-import can regenerate it).
+
+**Verify:** Users → confirm `service-account-<client>` now exists; then Clients → client → **Client scopes → Evaluate → Generated access token** shows the `rabbitmq.*` scopes in `scope` and `aud` containing `rabbitmq`.
+
+## Programmatic username/password logins should not require OTP
+
+**Goal** — let username + password + client ID + client secret authenticate without an OTP prompt, while keeping 2FA on interactive (browser) logins.
+
+**Key insight** — the two log-in paths run **separate authentication flows**: the management UI uses the **Browser** flow; username/password grants use the **Direct Grant** flow. Each has its own OTP step, so removing OTP from Direct Grant leaves Browser 2FA intact.
+
+**Primary fix — disable OTP realm-wide on Direct Grant:**
+1. **Authentication → Flows** tab.
+2. Select the **direct grant** flow.
+3. Find the **Direct Grant - Conditional OTP** sub-flow.
+4. Set its requirement radio to **Disabled**.
+
+**Surgical alternative — skip OTP only for specific clients:**
+1. **Authentication → Flows → direct grant →** kebab menu → **Duplicate**; name it e.g. `direct grant no otp`.
+2. In the copy, set **Direct Grant - Conditional OTP → Disabled**.
+3. **Clients → `<client>` → Advanced** → **Authentication flow overrides** → set **Direct grant** to `direct grant no otp` → **Save**.
+
+**Caveat — pending required actions:** disabling the flow step covers users who *have* OTP configured. Separately, a user with **"Configure OTP" as a pending required action** still fails with `invalid_grant: Account is not fully set up`. Clear it under Users → user → **Required actions**, or use a **service account** (`client_credentials`) for headless access — no user, so no OTP or required actions ever.
+
+---
 
 ## Reference
 

@@ -38,26 +38,11 @@ services:
       - NGINX_PROXY_CONTAINER=nginx-proxy
       - FILES_PERMS=644
       - DEBUG=1
-  keycloak:
-    image: quay.io/keycloak/keycloak:20.0
-    container_name: "keycloak"
-    networks:
-      - rabbitmq_net
-    restart: always
-    ports:
-      - "8080:8080"
-      - "8443:8443"
-    volumes:
-      - ./conf/keycloak/import:/opt/keycloak/data/import
-      - ./certs:/certs
-    environment:
-      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
-      - VIRTUAL_PORT=8443
-      - VIRTUAL_HOST=nost.smce.nasa.gov
-      - LETSENCRYPT_HOST=nost.smce.nasa.gov
-      - LETSENCRYPT_TEST=true
-    command: start --optimized --import-realm --hostname=nost.smce.nasa.gov --https-certificate-file=/certs/nost.smce.nasa.gov/fullchain.pem --https-certificate-key-file=/certs/nost.smce.nasa.gov/key.pem
+  # MIGRATION (keycloak_migration): the self-hosted Keycloak service was removed.
+  # Authentication now uses the NASA Science Cloud Keycloak at
+  # https://auth.sciencecloud.nasa.gov/realms/NOS-T (see conf/keycloak/rabbitmq.conf).
+  # The `.env` KEYCLOAK_ADMIN/KEYCLOAK_ADMIN_PASSWORD vars and the
+  # conf/keycloak/import/ realm export are no longer consumed by this stack.
   rabbitmq:
     image: rabbitmq:4.0.8-management
     container_name: "rabbitmq"
@@ -77,7 +62,10 @@ services:
       - ./conf/keycloak/advanced.config:/etc/rabbitmq/advanced.config:ro
       - ./certs:/certs
     environment:
-      - VIRTUAL_PORT=8443
+      # MIGRATION (keycloak_migration): 8443 was the self-hosted Keycloak port,
+      # now removed. RabbitMQ does not serve 8443; leaving this stale routed the
+      # public vhost at a dead port. Commented out pending nginx-proxy review.
+      # - VIRTUAL_PORT=8443
       - VIRTUAL_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_TEST=true
@@ -93,26 +81,32 @@ services:
       - ./conf/keycloak:/conf
       - ./certs:/certs
     environment:
-      - VIRTUAL_PORT=8443
+      # MIGRATION (keycloak_migration): 8443 was the self-hosted Keycloak port,
+      # now removed. The relay serves 15670, not 8443. Commented out pending
+      # nginx-proxy review.
+      # - VIRTUAL_PORT=8443
       - VIRTUAL_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_HOST=nost.smce.nasa.gov
       - LETSENCRYPT_TEST=true
     command: --upstream=tcp://rabbitmq:5672 --bind=0.0.0.0 --tls-cert=/certs/nost.smce.nasa.gov/fullchain.pem --tls-key=/certs/nost.smce.nasa.gov/key.pem
-  nost-sos:
-    image: emmanuelgonzalez/nost_sos_visualization:latest
-    container_name: "nost-sos"
-    networks:
-      - rabbitmq_net
-    restart: always
-    ports:
-      - "3000:3000"
-    volumes:
-      - ".env:/usr/src/app/.env"
-    environment:
-      - VIRTUAL_PORT=3000
-      - VIRTUAL_HOST=nost.smce.nasa.gov
-      - LETSENCRYPT_HOST=nost.smce.nasa.gov
-      - LETSENCRYPT_TEST=true
+  # MIGRATION (keycloak_migration): nost-sos disabled pending verification that the
+  # prebuilt image (emmanuelgonzalez/nost_sos_visualization) handles the split
+  # Keycloak host (auth.sciencecloud.nasa.gov) vs broker host (nost.smce.nasa.gov).
+  # nost-sos:
+  #   image: emmanuelgonzalez/nost_sos_visualization:latest
+  #   container_name: "nost-sos"
+  #   networks:
+  #     - rabbitmq_net
+  #   restart: always
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ".env:/usr/src/app/.env"
+  #   environment:
+  #     - VIRTUAL_PORT=3000
+  #     - VIRTUAL_HOST=nost.smce.nasa.gov
+  #     - LETSENCRYPT_HOST=nost.smce.nasa.gov
+  #     - LETSENCRYPT_TEST=true
   nost-monitor-frontend:
     build:
       context: ../nost-monitor-frontend/

@@ -44,7 +44,7 @@ services:
   # The `.env` KEYCLOAK_ADMIN/KEYCLOAK_ADMIN_PASSWORD vars and the
   # conf/keycloak/import/ realm export are no longer consumed by this stack.
   rabbitmq:
-    image: rabbitmq:4.0.8-management
+    image: rabbitmq:4.1.8-management
     container_name: "rabbitmq"
     networks:
       - rabbitmq_net
